@@ -1,0 +1,57 @@
+name: Daily NASDAQ via Kaggle GPU
+
+on:
+  schedule:
+    - cron: '0 20 * * *'   # 매일 KST 05:00에 실행
+  workflow_dispatch:
+
+jobs:
+  kaggle-gpu-run:
+    runs-on: ubuntu-latest
+
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY:      ${{ secrets.KAGGLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps & Kaggle CLI
+        run: |
+          pip install -r requirements.txt
+          pip install kaggle
+
+      - name: Push to Kaggle
+        run: |
+          cd kernel
+          kaggle kernels push -p . --quiet
+          cd ..
+
+      - name: Get kernel slug
+        id: get_slug
+        run: |
+          SLUG=$(kaggle kernels list -s "nasdaq-daily" -m 1 \
+                 | tail -n1 | awk '{print $1}')
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+
+      - name: Wait for completion
+        run: |
+          kaggle kernels status ${{ steps.get_slug.outputs.slug }} --wait
+
+      - name: Download results
+        run: |
+          mkdir -p results
+          kaggle kernels output ${{ steps.get_slug.outputs.slug }} -p results
+
+      - name: Send email
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+          SMTP_USER:   ${{ secrets.SMTP_USER }}
+          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+          RECIPIENT:   ${{ secrets.RECIPIENT }}
+        run: |
+          python scripts/send_email.py \
+            --subject "[Kaggle Forecast] NASDAQ $(date +'%Y-%m-%d')" \
+            --body-file results/forecast.csv

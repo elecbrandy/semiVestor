@@ -1,0 +1,11 @@
+{
+  "id": "elecbrandy/nasdaq-daily",
+  "title": "nasdaq-daily",
+  "code_file": "runner.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true
+}
+
